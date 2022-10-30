@@ -1,0 +1,5 @@
+[
+  (
+    1, '47 MySakila Drive', None, 'Alberta', 300, '', '', datetime.datetime(2006, 2, 15, 9, 45, 30)), (2, '28 MySQL Boulevard', None, 'QLD', 576, '', '', datetime.datetime(2006, 2, 15, 9, 45, 30)), (3, '23 Workhaven Lane', None, 'Alberta', 300, '', '14033335568', datetime.datetime(2006, 2, 15, 9, 45, 30)), (4, '1411 Lillydale Drive', None, 'QLD', 576, '', '6172235589', datetime.datetime(2006, 2, 15, 9, 45, 30)), (5, '1913 Hanoi Way', '', 'Nagasaki', 463, '35200', '28303384290', datetime.datetime(2006, 2, 15, 9, 45, 30))
+]
+        
