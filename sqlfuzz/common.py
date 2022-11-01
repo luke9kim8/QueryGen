@@ -89,8 +89,18 @@ def ret_typename_from_class(typeclass):
         typename = "DateTime"
     elif "SMALLINT" in str(typeclass):
         typename = "SmallInt"
-    elif typeclass.__name__:
-        typename = typeclass.__name__
+    elif "TEXT" in str(typeclass):
+        typename = "String"
+    elif "ARRAY" in str(typeclass):
+        typename = "String"
+    else:
+        typename = str(typeclass)
+    
+    # elif "TSVECTOR" in str(typeclass):
+    #     typename = "TSVector"
+    # elif typeclass.__name__:
+    #     typename = typeclass.__name__
+    # print(type(typeclass))
     return typename
 
 

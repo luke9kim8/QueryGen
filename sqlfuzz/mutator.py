@@ -244,11 +244,16 @@ class TableStat(object):
         # print(self.columns)
         # print("column data is ",column_data, x, self.column_type[x], type(column_data[0]))
         # 1) if string/text ==> store length
+        print("column_type[x]:", self.column_type[x])
         if self.column_type[x] == "String":
             temp_arr = []
+            # print("printing column data")
             print(column_data)
             for y in range(len(column_data)):
-                temp_arr.append(len(column_data[y]))
+                if column_data[y]:
+                    temp_arr.append(len(column_data[y]))
+                else:
+                    temp_arr.append(0)
 
             _min, _max, _avg = self.stat_from_arr(temp_arr)
         elif isinstance((column_data[0]), str):
@@ -268,10 +273,12 @@ class TableStat(object):
                 # temp_arr.append(int(column_data[y]))
 
             _min, _max, _avg = self.stat_from_arr(temp_arr)
-
+        elif self.column_type[x] == "Integer" or self.column_type[x] == "Float" or self.column_type[x] == "SmallInt":
+            _min, _max, _avg = self.stat_from_arr(column_data)
         # 3) if numetic
         else:
-            _min, _max, _avg = self.stat_from_arr(column_data)
+            print('column data:', column_data)
+            _min, _max, _avg = 0,0,0
 
         self.columns_stat.append([_min, _max, _avg])
         self.columns[x].extend(column_data)
