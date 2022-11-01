@@ -241,24 +241,17 @@ class TableStat(object):
     def calculate_stat_existing_db(self, column_data, x):
         # call once for each column, different from previous method calculate_stat and populate data
         # debug
-        # print(self.columns)
-        # print("column data is ",column_data, x, self.column_type[x], type(column_data[0]))
-        # 1) if string/text ==> store length
-        if self.column_type[x] == "String":
-            temp_arr = []
-            print(column_data)
-            for y in range(len(column_data)):
-                temp_arr.append(len(column_data[y]))
-
-            _min, _max, _avg = self.stat_from_arr(temp_arr)
-        elif isinstance((column_data[0]), str):
-            # get stat for a char(1) column
-            # print("Char(1)")
+        # 1) if string/text
+        if self.column_type[x] == "String" or isinstance((column_data[0]), str):
             temp_arr = []
             for y in range(len(column_data)):
-                temp_arr.append(len(column_data[y]))
+                if column_data[y]:
+                    temp_arr.append(len(column_data[y]))
+                else:
+                    temp_arr.append(0)
             _min, _max, _avg = self.stat_from_arr(temp_arr)
-
+            self.columns_stat.append([_min, _max, _avg])
+            self.columns[x].extend(column_data)
         # 2) if DateTime
         elif isinstance((column_data[0]), datetime.date):
             temp_arr = []
@@ -266,15 +259,15 @@ class TableStat(object):
                 temp_arr.append(int(column_data[y].strftime("%Y%m%d")))
                 # print("sampled datatime", column_data[y])
                 # temp_arr.append(int(column_data[y]))
-
             _min, _max, _avg = self.stat_from_arr(temp_arr)
-
-        # 3) if numetic
-        else:
+            self.columns_stat.append([_min, _max, _avg])
+            self.columns[x].extend(column_data)
+        # 3) if numeric
+        elif isinstance(column_data[0], (float, int)):
             _min, _max, _avg = self.stat_from_arr(column_data)
+            self.columns_stat.append([_min, _max, _avg])
+            self.columns[x].extend(column_data)
 
-        self.columns_stat.append([_min, _max, _avg])
-        self.columns[x].extend(column_data)
         # print("finish run update for this column")
 
     def stat_from_arr(self, array):
@@ -283,78 +276,55 @@ class TableStat(object):
         _avg = mean(array)
         return _min, _max, _avg
 
-
-
-
-
 def load_existing_dbschema(config_data):
     # return 4 datafield in createsequences class
-    tables = []  # tables spec (Tableclass), name,
-    tables_stat = []  # tables_stat # tables statistics (TableStat class)
+    table_specs = []  # tables spec (Tableclass), name,
+    table_stats = []  # tables_stat # tables statistics (TableStat class)
+    sqlalchemy_tables = []
+    
+    # TODO: Update connstring to not use hardcoded values
     db_name = config_data["name"]
-    table_names = (config_data["tables"])
-    conn_str = "postgresql://{}:postgres@localhost:{}/{}".format( \
-        conf.USERS['postgres'], conf.TARGETS['postgres'], db_name)
+    conn_str = "postgresql://postgres:postgres@localhost:5438/{}".format(db_name)
+    
     postgres_engine = create_engine(conn_str)
     schemameta = MetaData(postgres_engine)
     DBSession = sessionmaker(bind=postgres_engine)
     session = DBSession()
-    alc_tables = []
+    
+    table_names = (config_data["tables"])
     for table_name in table_names:
-        messages = Table(table_name,
+        sqlalchemy_table = Table(table_name,
                          schemameta,
                          autoload=True,
                          autoload_with=postgres_engine)
-        alc_tables.append(messages)
+        sqlalchemy_tables.append(sqlalchemy_table)
         
         table_stat = TableStat(table_name)
-        table_class = TableSpec(table_name)
+        table_spec = TableSpec(table_name)
         
-        table_class.pk_idx = -1
-        table_class.fk_idx = -1
-        results = session.query(messages)
-        print("messages")
-        print(messages)
-        print("results")
-        print(results)
-        sample_results = (results[:5]) # could be a chance to randomize
-        print("sample results")
-        print(sample_results)
-        for res in sample_results:
-            print(res)
-        column_index = 0
-        for c in messages.columns:
-            column_data = [i[column_index] for i in sample_results]
-            # print("column type is", c.type, type(column_data[0]), type(c.type))
-            # if isinstance(c.type, Integer):
-            #     print("yeah", c.type)
-            # column_type=''
-
+        table_spec.pk_idx = -1
+        table_spec.fk_idx = -1
+        results = session.query(sqlalchemy_table)
+        table_stat.table_size = len(results.all())
+        sample_results = (results[:5])
+        
+        for c in sqlalchemy_table.columns:
+            column_data = [i[c] for i in sample_results]
             # need to use sqlalchemy type instead of real database's type
-            table_class.add_column(c.name, (c.type))
+            table_spec.add_column(c.name, (c.type))
             typename = ret_typename_from_class(c.type)
             table_stat.add_column(c.name, typename)
-            # some type may not use for intersection calculation
-            column_index += 1
 
-        tables.append(table_class)
-        tables_stat.append(table_stat)
-        for c in range(len(messages.columns)):
+        table_specs.append(table_spec)
+        table_stats.append(table_stat)
+        
+        for c in range(len(sqlalchemy_table.columns)):
             column_data = [i[c] for i in sample_results]
-            # print(sample_results[messages.columns.index(c)])
-            tables_stat[(
-                tables_stat).index(table_stat)].calculate_stat_existing_db(
+            table_stat.calculate_stat_existing_db(
                     column_data, c)
-        # update stat for each table
-        table_stat.table_size = len(results.all())
-        # print("table_size", table_stat.table_size)
-        # print("****************************")
 
     # the tpch does not have any pk or fk
-    # print(len(alc_tables))
-
-    return tables, tables_stat, alc_tables, alc_tables
-
+    return table_specs, table_stats, sqlalchemy_tables, sqlalchemy_tables
 
 # TODO: apply Table class when generate spec
 
@@ -1488,9 +1458,6 @@ def stmt_complex(stmt, available_columns):
     # group
     # print("ac", available_columns)
     print("examine project columns", type(stmt.c))
-    column_list = stmt.c
-    for i in column_list:
-        print(type(i), i.type)
     if (random_int_range(1000) < conf.PROB_TABLE["group"]):
         chosen_groupby_columns = random.choices(
             available_columns,
@@ -1937,6 +1904,9 @@ def main():
                     # global spec
                     spec = Query_Spec("demo", tables, tables_stat, scope)
                     stmt = reproduce_bug4(spec)
+                    print("GENENOFIJOWIEJFW")
+                    print(stmt)
+                    print("flag")
                     try:
                         stmt_string = literalquery(stmt)
                         print(stmt_string.replace("ON 1", "ON TRUE") + ";", file=sys.stderr)

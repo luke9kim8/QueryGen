@@ -72,6 +72,7 @@ class LiteralDialect(DefaultDialect):
 
 
 def ret_typename_from_class(typeclass):
+    print(typeclass, type(typeclass), str(typeclass))
     if "VARCHAR" in str(typeclass):
         typename = "String"
     # add support for types read from TPCH:
@@ -89,28 +90,62 @@ def ret_typename_from_class(typeclass):
         typename = "DateTime"
     elif "SMALLINT" in str(typeclass):
         typename = "SmallInt"
-    elif typeclass.__name__:
-        typename = typeclass.__name__
+    elif "TEXT" in str(typeclass):
+        typename = "Text"
+    elif "ARRAY" in str(typeclass):
+        typename = "Array"
+    else:
+        try:
+            if typeclass.__name__:
+                typename = typeclass.__name__
+            else:
+                typename = str(typeclass)
+        except Exception:
+            typename = str(typeclass)
     return typename
 
 
 def literalquery(statement, db="postgres"):
     import sqlalchemy.orm
     if isinstance(statement, sqlalchemy.orm.Query):
-        statement = statement.statement
-
-    if db == "myqsl":
-        target_dialect = mysql.dialect()
-    elif db == "postgres":
-        target_dialect = LiteralDialect()
-    elif db == "sqlite":
-        target_dialect = sqlite.dialect()
-    else:
-        target_dialect = LiteralDialect()
-
-    return statement.compile(dialect=target_dialect,
+        statement = statement.statement 
+    # if db == "mysql":
+    #     target_dialect = mysql.dialect()
+    # elif db == "postgres":
+    #     target_dialect = LiteralDialect()
+    # elif db == "sqlite":
+    #     target_dialect = sqlite.dialect()
+    # else:
+    #     target_dialect = LiteralDialect()
+    # if db == "mysql":
+    target_dialect_my = mysql.dialect()
+    stmt_my = statement.compile(dialect=mysql.dialect(), compile_kwargs={'literal_binds': True},).string
+    target_dialect_pg = LiteralDialect()
+    stmt_pg = statement.compile(dialect=target_dialect_pg, compile_kwargs={'literal_binds': True},).string
+    target_dialect_sq = sqlite.dialect()
+    stmt_sq = statement.compile(dialect=target_dialect_sq, compile_kwargs={'literal_binds': True},).string
+    print("MYSQL")
+    print(stmt_my)
+    print("PSQL")
+    print(stmt_pg)
+    print("SQLITE")
+    print(stmt_sq)
+    print("END")
+    
+    return statement.compile(dialect=target_dialect_pg,
                              compile_kwargs={'literal_binds': True},).string
 
+# SELECT min(address.last_update) OVER (PARTITION BY address.address_id) AS c_2581, address.address2, address.postal_code, address.address, address.phone
+# FROM address
+# WHERE NOT (address.address2 <=> %s) AND address.address_id < 3
+
+# SELECT min(address.last_update) OVER (PARTITION BY address.address_id) AS c_2581, address.address2, address.postal_code, address.address, address.phone
+# FROM address
+# WHERE address.address2 IS DISTINCT FROM '47 MySakila Drive' AND address.address_id < 3;
+
+# SELECT min(address.last_update) OVER (PARTITION BY address.address_id) AS c_2581, address.address2, address.postal_code, address.address, address.phone
+# FROM address
+# WHERE address.address2 IS NOT ? AND address.address_id < 3
 
 def get_compatible_function(column):
     print(type(column))
